@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -101,11 +102,11 @@ public class EnterprisesServiceImpl implements EnterprisesService {
 
     @Override
     public ResponseBase findAllEnterprises() {
-        Optional allEnterprises = Optional.of(enterprisesRepository.findAll());
-        if(allEnterprises.stream().count()>0){
-            return new ResponseBase(Constants.CODE_SUCCESS,Constants.MESS_SUCCESS, allEnterprises);
-        } else {
+        Optional<List<EnterprisesEntity>> allEnterprises = Optional.of(enterprisesRepository.findAll());
+        if (allEnterprises.get().isEmpty() || allEnterprises.get().size() == 0) {
             return new ResponseBase(Constants.CODE_ERROR_DATA_NOT, Constants.MESS_ZERO_ROWS, Optional.empty());
+        } else {
+            return new ResponseBase(Constants.CODE_SUCCESS,Constants.MESS_SUCCESS, allEnterprises);
         }
     }
 

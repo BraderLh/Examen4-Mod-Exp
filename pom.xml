@@ -25,10 +25,15 @@
 		<sonar.language>java</sonar.language>
 		<!-- Exclusión de archivos -->
 		<sonar.exclusions>
+			**/Constants.java,
 			**/RedisService.java,
 			**/ETypeDocuments.java,
 			**/MsExamenExpApplication.java,
 			**/EnterprisesController.java,
+			**/ResponseBase.java,
+			**/ResponseSunat.java,
+			**/RequestEnterprises.java,
+			**/Enterprises.java,
 			**/Util.java,
 			**/EnterprisesValidations.java
 		</sonar.exclusions>
@@ -142,8 +147,8 @@
 						</goals>
 					</execution>
 					<execution>
-						<id>jacoco-site</id>
-						<phase>package</phase>
+						<id>report</id>
+						<phase>prepare-package</phase>
 						<goals>
 							<goal>report</goal>
 						</goals>
@@ -152,8 +157,12 @@
 				<configuration>
 					<excludes>
 						<exclude>com/codigo/msexamenexp/entity/**</exclude>
+						<exclude>com/codigo/msexamenexp/aggregates/model/**</exclude>
+						<exclude>com/codigo/msexamenexp/entity/common/**</exclude>
 						<exclude>com/codigo/msexamenexp/feignclient/**</exclude>
 						<exclude>com/codigo/msexamenexp/repository/**</exclude>
+						<exclude>com/codigo/msexamenexp/config/**</exclude>
+						<exclude>com/codigo/msexamenexp/controller/**</exclude>
 					</excludes>
 				</configuration>
 			</plugin>

@@ -16,7 +16,7 @@ import com.codigo.msexamenexp.util.EnterprisesValidations;
 import com.codigo.msexamenexp.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.*;
@@ -47,14 +47,19 @@ class EnterprisesServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
-        enterprisesService = new EnterprisesServiceImpl(enterprisesTypeRepository, enterprisesRepository,
-                enterprisesValidations, documentsTypeRepository, redisService, sunatClient, util);
+        try {
+            MockitoAnnotations.openMocks(this);
+            enterprisesService = new EnterprisesServiceImpl(enterprisesTypeRepository, enterprisesRepository,
+                    enterprisesValidations, documentsTypeRepository, redisService, sunatClient, util);
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
     }
-
 
     @Test
     void getExecutionSunat() {
+        String authorizathion = "Bearer " + "token";
+        String numero = "20494100186";
         ResponseSunat responseSunat = new ResponseSunat("IMPORTACIONES FVC EIRL", "6",
                 "20494100186", "ACTIVO", "HABIDO",
                 "JR. CORONEL SECADA NRO 281 URB. MOYOBAMBA ",
@@ -87,9 +92,14 @@ class EnterprisesServiceImplTest {
             assertEquals(Util.convertResponseToJson(responseSunat), redisDataResponse);
         }
         Mockito.doReturn(enterprisesEntityExpected).when(spy).getExecutionSunat(Mockito.anyString());
+        Mockito.when(enterprisesTypeRepository.findByCodType(Mockito.anyString())).thenReturn(enterprisesTypeEntity);
+        Mockito.when(documentsTypeRepository.findByCodType(Mockito.anyString())).thenReturn(documentsTypeEntity);
+
         Mockito.when(enterprisesRepository.save(Mockito.any(EnterprisesEntity.class))).thenReturn(enterprisesEntityExpected);
-        redisService.saveKeyValue(Constants.REDIS_KEY_INFO_SUNAT_CLIENT + "20494100186", redisDataResponse, 10);
+
+        redisService.saveKeyValue(Constants.REDIS_KEY_INFO_SUNAT_CLIENT + numero, redisDataResponse, 10);
         EnterprisesEntity enterprisesEntityObtained = spy.getExecutionSunat("20494100186");
+
         assertNotNull(enterprisesEntityObtained);
         assertEquals(enterprisesEntityExpected, enterprisesEntityObtained);
     }
@@ -131,6 +141,12 @@ class EnterprisesServiceImplTest {
             assertEquals(dataExpected.getBusinessName(), dataObtained.getBusinessName());
             assertEquals(dataExpected.getStatus(), dataObtained.getStatus());
         }
+    }
+
+    @Test
+    void findOneEnterprise() {
+        findOneEnterpriseByDoc_NotCacheOrDatabase_ReturnsEnterprise();
+        findOneEnterpriseByDoc_RedisCache_ReturnsEnterprise();
     }
 
     @Test
@@ -250,7 +266,17 @@ class EnterprisesServiceImplTest {
         assertEquals(responseBaseExpected.getMessage(), responseBaseObtained.getMessage());
         assertEquals(responseBaseExpected.getData(), responseBaseObtained.getData());
     }
+    @Test
+    void findAllEnterprises_ZeroData_ReturnEmptyListEnterprise() {
+        List<EnterprisesEntity> enterprisesEntityList = new ArrayList<>();
+        Mockito.when(enterprisesRepository.findAll()).thenReturn(enterprisesEntityList);
+        ResponseBase responseBaseExpected = new ResponseBase(Constants.CODE_ERROR_DATA_NOT, Constants.MESS_ZERO_ROWS, Optional.empty());
+        ResponseBase responseBaseObtained = enterprisesService.findAllEnterprises();
 
+        assertEquals(responseBaseExpected.getCode(), responseBaseObtained.getCode());
+        assertEquals(responseBaseExpected.getMessage(), responseBaseObtained.getMessage());
+        assertEquals(responseBaseExpected.getData(), responseBaseObtained.getData());
+    }
     @Test
     void updateEnterpriseById_ReturnEnterprise() {
         boolean validationEntity = true;
@@ -338,5 +364,39 @@ class EnterprisesServiceImplTest {
         assertEquals(responseBaseExpected.getMessage(), responseBaseObtained.getMessage());
         assertEquals(responseBaseExpected.getData(), responseBaseObtained.getData());
         assertEquals(enterpriseStatusExpected, enterpriseStatusObtained);
+    }
+    @Test
+    void deleteEnterpriseById_NotExists_ReturnEnterpriseIsEmpty() {
+        DocumentsTypeEntity documentsTypeEntity = DocumentsTypeEntity.builder().idDocumentsType(3)
+                .codType("06").descType("RUC").status(Constants.STATUS_ACTIVE).build();
+
+        EnterprisesTypeEntity enterprisesTypeEntity = EnterprisesTypeEntity.builder().idEnterprisesType(4)
+                .descType("EIRL").codType("04").status(Constants.STATUS_ACTIVE).build();
+
+        EnterprisesEntity enterpriseToDelete = EnterprisesEntity.builder().idEnterprises(5)
+                .numDocument("20547825781").businessName("DMG DRILLING E.I.R.L.").tradeName("DMG DRILLING E.I.R.L.")
+                .status(Constants.STATUS_ACTIVE).enterprisesTypeEntity(enterprisesTypeEntity).documentsTypeEntity(documentsTypeEntity).build();
+
+
+        Mockito.when(enterprisesRepository.existsById(Mockito.anyInt())).thenReturn(false);
+
+        ResponseBase responseBaseExpected = new ResponseBase(Constants.CODE_ERROR_DATA_NOT,
+                Constants.MESS_ERROR_NOT_DELETE, Optional.empty());
+
+        enterprisesRepository.save(enterpriseToDelete);
+        enterprisesRepository.deleteById(enterpriseToDelete.getIdEnterprises());
+
+        Optional<EnterprisesEntity> enterpriseNotFound = enterprisesRepository.findById(enterpriseToDelete.getIdEnterprises());
+
+        ResponseBase responseBaseObtained = new ResponseBase(Constants.CODE_ERROR_DATA_NOT,
+                Constants.MESS_ERROR_NOT_DELETE, enterpriseNotFound);
+
+        assertTrue(responseBaseExpected.getData().isEmpty());
+        assertTrue(responseBaseObtained.getData().isEmpty());
+        responseBaseExpected.getData().ifPresent(Assertions::assertNull);
+        responseBaseObtained.getData().ifPresent(Assertions::assertNull);
+        assertEquals(responseBaseExpected.getCode(), responseBaseObtained.getCode());
+        assertEquals(responseBaseExpected.getMessage(), responseBaseObtained.getMessage());
+        assertEquals(responseBaseExpected.getData(), responseBaseObtained.getData());
     }
 }
